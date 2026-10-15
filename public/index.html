@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>企业内部邮件协同办公系统</title>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Element Plus CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-plus@2.6.1/dist/index.css" />
+  <!-- Quill 富文本编辑器 CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" />
+  
+  <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/element-plus@2.6.1/dist/index.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@element-plus/icons-vue@2.3.1/dist/index.iife.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios@1.6.8/dist/axios.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+
+  <style>
+    :root {
+      --primary-color: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg-main: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: var(--bg-main); color: var(--text-main); height: 100vh; overflow: hidden; }
+    #app { height: 100vh; display: flex; flex-direction: column; }
+    
+    /* 顶部导航 */
+    .header { height: 60px; background: #0f172a; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 28px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); z-index: 10; }
+    .header-logo { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; display: flex; align-items: center; gap: 10px; }
+    .header-user { display: flex; align-items: center; gap: 16px; font-size: 13px; }
+    
+    /* 整体布局 */
+    .main-body { flex: 1; display: flex; overflow: hidden; }
+    
+    /* 左侧边栏 */
+    .sidebar { width: 230px; background: #ffffff; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
+    .sidebar-menu { flex: 1; padding: 8px 12px; }
+    .sidebar-item { display: flex; align-items: center; padding: 11px 16px; border-radius: 8px; margin-bottom: 4px; cursor: pointer; color: #475569; font-size: 14px; font-weight: 500; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); gap: 10px; }
+    .sidebar-item:hover { background: #f1f5f9; color: var(--primary-color); }
+    .sidebar-item.active { background: #eff6ff; color: var(--primary-color); font-weight: 600; }
+    .sidebar-badge { margin-left: auto; background: #ef4444; color: #fff; border-radius: 9999px; padding: 1px 8px; font-size: 11px; font-weight: 600; }
+    
+    /* 主内容区 */
+    .content-area { flex: 1; background: #f8fafc; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; }
+    .mail-card { background: var(--card-bg); border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 4px 6px -2px rgba(0,0,0,0.02); padding: 20px 24px; flex: 1; display: flex; flex-direction: column; }
+    
+    /* 登录页 */
+    .login-container { width: 100vw; height: 100vh; background: radial-gradient(circle at 50% 50%, #1e293b 0%, #0f172a 100%); display: flex; align-items: center; justify-content: center; }
+    .login-box { width: 420px; background: #ffffff; border-radius: 16px; padding: 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.25); }
+    .login-title { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 24px; color: #0f172a; }
+    
+    /* 邮件详情 */
+    .mail-view-header { border-bottom: 1px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 20px; }
+    .mail-view-title { font-size: 20px; font-weight: 700; color: #0f172a; margin-bottom: 12px; line-height: 1.4; }
+    .mail-meta { font-size: 13px; color: #64748b; line-height: 2; background: #f8fafc; padding: 14px 18px; border-radius: 8px; border: 1px solid #e2e8f0; }
+    .mail-html-content { font-size: 15px; line-height: 1.8; color: #1e293b; padding: 16px 4px; min-height: 180px; word-break: break-word; }
+    
+    /* 附件卡片组件 */
+    .attachment-zone { margin-top: 10px; width: 100%; }
+    .upload-drop-zone { border: 2px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; padding: 20px; text-align: center; cursor: pointer; transition: all 0.2s; }
+    .upload-drop-zone:hover { border-color: var(--primary-color); background: #eff6ff; }
+    .attachment-card-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-top: 14px; }
+    .attachment-item-card { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); transition: all 0.2s; }
+    .attachment-item-card:hover { border-color: #93c5fd; box-shadow: 0 2px 6px rgba(37,99,235,0.08); }
+    .att-icon { width: 36px; height: 36px; border-radius: 6px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .att-info { flex: 1; overflow: hidden; }
+    .att-name { font-size: 13px; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .att-size { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+    
+    /* 通讯录布局 */
+    .contact-layout { display: flex; gap: 24px; flex: 1; overflow: hidden; }
+    .contact-tree-pane { width: 240px; border-right: 1px solid var(--border-color); padding-right: 18px; }
+    .contact-table-pane { flex: 1; display: flex; flex-direction: column; }
+    
+    /* 富文本容器 */
+    .quill-editor-box { height: 260px; margin-bottom: 42px; border-radius: 0 0 8px 8px; }
+    .ql-toolbar.ql-snow { border-radius: 8px 8px 0 0; background: #f8fafc; border-color: #cbd5e1; }
+    .ql-container.ql-snow { border-color: #cbd5e1; border-radius: 0 0 8px 8px; font-size: 14px; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- 登录页面 -->
+  <div v-if="!token" class="login-container">
+    <div class="login-box">
+      <div class="login-title">企业内部邮件协同系统</div>
+      <el-form @submit.prevent="handleLogin" label-position="top">
+        <el-form-item label="账号">
+          <el-input v-model="loginForm.username" placeholder="请输入用户名 (admin / zhangsan / dbadmin)" size="large" />
+        </el-form-item>
+        <el-form-item label="密码">
+          <el-input v-model="loginForm.password" type="password" placeholder="默认密码: 123456" show-password size="large" />
+        </el-form-item>
+        <el-button type="primary" native-type="submit" size="large" style="width: 100%; margin-top: 12px;" :loading="loginLoading">
+          登 录
+        </el-button>
+        <div style="font-size: 12px; color: #64748b; margin-top: 20px; text-align: center; line-height: 1.6;">
+          研发经理: <strong>lisi</strong> | 研发员工: <strong>zhangsan</strong> | 运营经理: <strong>wangwu</strong> | 管理员: <strong>admin</strong> (密码统一: 123456)
+        </div>
+      </el-form>
+    </div>
+  </div>
+
+  <!-- 主系统工作台 -->
+  <template v-else>
+    <header class="header">
+      <div class="header-logo">
+        <el-icon size="22" color="#60a5fa"><i-ep-message /></el-icon>
+        <span>企业内部邮件协同办公系统</span>
+        <el-tag size="small" type="success" effect="dark" style="margin-left: 10px; border-radius: 4px;">端口: 8781 | MySQL 8.0</el-tag>
+      </div>
+      <div class="header-user">
+        <span>当前用户：<strong>{{ currentUser.nickname }} ({{ currentUser.username }})</strong></span>
+        <el-tag size="small" type="info" effect="plain">{{ currentUser.role }}</el-tag>
+        <el-button type="danger" link @click="handleLogout">
+          <el-icon style="margin-right: 4px;"><i-ep-switch-button /></el-icon>退出
+        </el-button>
+      </div>
+    </header>
+
+    <div class="main-body">
+      <!-- 左侧边栏 -->
+      <aside class="sidebar">
+        <div style="padding: 16px 12px 12px 12px;">
+          <el-button type="primary" size="large" style="width: 100%; font-weight: 600; box-shadow: 0 4px 10px rgba(37,99,235,0.25);" @click="openCompose()">
+            <el-icon style="margin-right: 6px;"><i-ep-edit-pen /></el-icon> 写邮件
+          </el-button>
+        </div>
+        <div class="sidebar-menu">
+          <div class="sidebar-item" :class="{ active: currentTab === 'inbox' }" @click="switchTab('inbox')">
+            <el-icon><i-ep-box /></el-icon> 收件箱
+            <span v-if="unreadCount > 0" class="sidebar-badge">{{ unreadCount }}</span>
+          </div>
+          <div class="sidebar-item" :class="{ active: currentTab === 'sent' }" @click="switchTab('sent')">
+            <el-icon><i-ep-position /></el-icon> 已发送邮件
+          </div>
+          <div class="sidebar-item" :class="{ active: currentTab === 'drafts' }" @click="switchTab('drafts')">
+            <el-icon><i-ep-document /></el-icon> 草稿箱
+          </div>
+          
+          <!-- 邮件外发审批中心 (仅直属部门经理可见) -->
+          <div v-if="currentUser.is_manager" class="sidebar-item" :class="{ active: currentTab === 'audits' }" @click="switchTab('audits')">
+            <el-icon><i-ep-stamp /></el-icon> 部门邮件审批
+            <span v-if="pendingAuditCount > 0" class="sidebar-badge" style="background: #f59e0b;">{{ pendingAuditCount }}</span>
+          </div>
+
+          <div class="sidebar-item" :class="{ active: currentTab === 'contacts' }" @click="switchTab('contacts')">
+            <el-icon><i-ep-user /></el-icon> 企业通讯录
+          </div>
+          <div v-if="currentUser.role === 'admin' || currentUser.role === 'db_admin'" class="sidebar-item" :class="{ active: currentTab === 'database' }" @click="switchTab('database')">
+            <el-icon><i-ep-coin /></el-icon> 数据库管理与迁移
+          </div>
+        </div>
+      </aside>
+
+      <!-- 右侧主内容区 -->
+      <main class="content-area">
+        <!-- 1. 收件箱 / 已发送 / 草稿箱 列表 -->
+        <div v-if="['inbox', 'sent', 'drafts'].includes(currentTab)" class="mail-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <h2 style="font-size: 18px; font-weight: 700; color: #0f172a;">
+                {{ currentTab === 'inbox' ? '收件箱' : (currentTab === 'sent' ? '已发送邮件' : '草稿箱') }}
+              </h2>
+              <el-tag size="small" type="info" round>{{ totalMails }} 封</el-tag>
+            </div>
+            <div style="display: flex; gap: 10px;">
+              <el-input v-model="searchKeyword" placeholder="搜索邮件主题 / 发件人..." style="width: 280px;" clearable @clear="loadMailList" @keyup.enter="loadMailList">
+                <template #append>
+                  <el-button @click="loadMailList"><el-icon><i-ep-search /></el-icon></el-button>
+                </template>
+              </el-input>
+              <el-button @click="loadMailList" circle><el-icon><i-ep-refresh /></el-icon></el-button>
+            </div>
+          </div>
+
+          <el-table :data="mailList" v-loading="tableLoading" style="width: 100%; flex: 1;" @row-click="handleRowClick" row-class-name="cursor-pointer" stripe>
+            <el-table-column width="46" align="center">
+              <template #default="{ row }">
+                <el-icon v-if="row.is_read === 0 && currentTab === 'inbox'" color="#2563eb" size="18"><i-ep-message-box /></el-icon>
+                <el-icon v-else color="#94a3b8" size="16"><i-ep-document /></el-icon>
+              </template>
+            </el-table-column>
+            
+            <!-- 发件人 (仅收件箱) -->
+            <el-table-column v-if="currentTab === 'inbox'" label="发件人" width="200">
+              <template #default="{ row }">
+                <span style="font-weight: 600; color: #1e293b;">{{ row.sender_nickname }}</span>
+                <span style="color: #94a3b8; font-size: 12px; margin-left: 4px;">&lt;{{ row.sender_email }}&gt;</span>
+              </template>
+            </el-table-column>
+
+            <el-table-column prop="subject" label="邮件主题" min-width="260">
+              <template #default="{ row }">
+                <span :style="{ fontWeight: (row.is_read === 0 && currentTab === 'inbox') ? '700' : 'normal', color: (row.is_read === 0 && currentTab === 'inbox') ? '#0f172a' : '#334155' }">
+                  {{ row.subject }}
+                </span>
+                <el-tag v-if="row.has_attachment" size="small" type="info" effect="light" style="margin-left: 8px;">
+                  📎 附件
+                </el-tag>
+              </template>
+            </el-table-column>
+
+            <!-- 审批状态标签 (已发送箱特有) -->
+            <el-table-column v-if="currentTab === 'sent'" label="审批状态" width="130" align="center">
+              <template #default="{ row }">
+                <el-tag v-if="row.audit_status === 'pending'" type="warning" effect="dark" size="small">待审批</el-tag>
+                <el-tag v-else-if="row.audit_status === 'rejected'" type="danger" effect="dark" size="small">已驳回</el-tag>
+                <el-tag v-else type="success" effect="light" size="small">已审批通过</el-tag>
+              </template>
+            </el-table-column>
+
+            <!-- 时间展示 -->
+            <el-table-column label="时间" width="200">
+              <template #default="{ row }">
+                <span style="color: #64748b; font-size: 13px;">
+                  <el-icon style="margin-right: 4px; vertical-align: middle;"><i-ep-clock /></el-icon>
+                  {{ row.sent_at || row.created_at || row.updated_at }}
+                </span>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="操作" width="140" align="center">
+              <template #default="{ row }">
+                <template v-if="currentTab === 'drafts'">
+                  <el-button type="primary" link @click.stop="openEditDraft(row)">编辑/发送</el-button>
+                </template>
+                <el-button type="danger" link @click.stop="deleteMail(row.mail_id)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
+            <el-pagination layout="total, prev, pager, next" :total="totalMails" :page-size="pageSize" v-model:current-page="currentPage" @current-change="loadMailList" />
+          </div>
+        </div>
+
+        <!-- 2. 邮件审批中心 (部门经理视图) -->
+        <div v-if="currentTab === 'audits'" class="mail-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <h2 style="font-size: 18px; font-weight: 700; color: #0f172a;">部门下属待审邮件</h2>
+              <el-tag type="warning" effect="dark" round>{{ pendingAuditList.length }} 待审批</el-tag>
+            </div>
+            <el-button @click="loadPendingAudits" circle><el-icon><i-ep-refresh /></el-icon></el-button>
+          </div>
+
+          <el-alert title="根据企业组织架构与权限规范：员工发送的外部/内部邮件仅限直属部门经理审批，审批通过后系统自动投递给收件人。" type="info" show-icon :closable="false" style="margin-bottom: 16px;" />
+
+          <el-table :data="pendingAuditList" v-loading="auditLoading" style="width: 100%; flex: 1;" border stripe>
+            <el-table-column label="申请发信人 (下属员工)" width="200">
+              <template #default="{ row }">
+                <span style="font-weight: 600; color: #0f172a;">{{ row.sender_nickname }}</span>
+                <el-tag size="small" type="success" style="margin-left: 6px;">{{ row.department_name }}</el-tag>
+                <div style="font-size: 12px; color: #94a3b8;">&lt;{{ row.sender_email }}&gt;</div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="subject" label="邮件主题" min-width="260">
+              <template #default="{ row }">
+                <span style="font-weight: 600; color: #1e293b;">{{ row.subject }}</span>
+                <el-tag v-if="row.has_attachment" size="small" type="info" style="margin-left: 8px;">含附件</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="created_at" label="提交时间" width="180" />
+            <el-table-column label="经理审批操作" width="240" align="center">
+              <template #default="{ row }">
+                <el-button type="info" size="small" link @click="viewAuditDetail(row)">查阅正文</el-button>
+                <el-button type="success" size="small" @click="handleApprove(row)">批准外发</el-button>
+                <el-button type="danger" size="small" @click="handleReject(row)">驳回</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
+        <!-- 3. 通讯录页面 (部门联动) -->
+        <div v-if="currentTab === 'contacts'" class="mail-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="font-size: 18px; font-weight: 700; color: #0f172a;">企业组织架构通讯录</h2>
+            <div style="display: flex; gap: 10px;">
+              <el-input v-model="contactSearchKey" placeholder="搜索姓名 / 邮箱 / 岗位 / 手机..." style="width: 300px;" clearable @clear="loadContacts" @keyup.enter="loadContacts">
+                <template #append>
+                  <el-button @click="loadContacts"><el-icon><i-ep-search /></el-icon></el-button>
+                </template>
+              </el-input>
+              <el-button @click="loadContacts" circle><el-icon><i-ep-refresh /></el-icon></el-button>
+            </div>
+          </div>
+
+          <div class="contact-layout">
+            <div class="contact-tree-pane">
+              <div style="font-size: 13px; font-weight: 700; margin-bottom: 12px; color: #64748b; text-transform: uppercase;">部门分类</div>
+              <el-menu :default-active="String(selectedDeptId)" @select="handleDeptSelect" style="border-right: none;">
+                <el-menu-item index="0">
+                  <el-icon><i-ep-office-building /></el-icon>
+                  <span>全公司员工</span>
+                </el-menu-item>
+                <el-menu-item v-for="d in departmentList" :key="d.id" :index="String(d.id)">
+                  <el-icon><i-ep-folder /></el-icon>
+                  <span>{{ d.name }}</span>
+                </el-menu-item>
+              </el-menu>
+            </div>
+
+            <div class="contact-table-pane">
+              <el-table :data="contactList" border v-loading="contactLoading" style="width: 100%; flex: 1;">
+                <el-table-column prop="nickname" label="姓名" width="160">
+                  <template #default="{ row }">
+                    <span style="font-weight: 600; color: #0f172a;">{{ row.nickname }}</span>
+                    <el-tag size="small" type="info" style="margin-left: 6px;">{{ row.username }}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="department_name" label="所属部门" width="160">
+                  <template #default="{ row }">
+                    <el-tag size="small" type="success" effect="light">{{ row.department_name }}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="position" label="职位岗位" width="160" />
+                <el-table-column prop="email" label="内部邮箱" min-width="180" />
+                <el-table-column prop="phone" label="联系电话" width="140" />
+                <el-table-column label="操作" width="120" align="center">
+                  <template #default="{ row }">
+                    <el-button type="primary" size="small" @click="composeToUser(row)">
+                      <el-icon style="margin-right: 4px;"><i-ep-message /></el-icon> 发邮件
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. 数据库管理与迁移后台 -->
+        <div v-if="currentTab === 'database'" class="mail-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="font-size: 18px; font-weight: 700; color: #0f172a;">国产数据库适配与迁移中心 (KingbaseES)</h2>
+          </div>
+
+          <el-alert title="系统当前运行在 MySQL 8.0 默认引擎上。支持向人大金仓 KingbaseES 执行 Schema 结构转换、分批数据迁移、一致性校验与安全切换。" type="info" show-icon :closable="false" style="margin-bottom: 20px;" />
+
+          <el-tabs v-model="dbSubTab">
+            <el-tab-pane label="目标库连接测试" name="conn">
+              <el-form label-width="140px" style="max-width: 600px; margin-top: 16px;">
+                <el-form-item label="目标数据库类型">
+                  <el-input value="人大金仓 KingbaseES (PG模式)" disabled />
+                </el-form-item>
+                <el-form-item label="主机地址 (Host)">
+                  <el-input v-model="targetDbForm.host" placeholder="127.0.0.1" />
+                </el-form-item>
+                <el-form-item label="服务端口 (Port)">
+                  <el-input v-model="targetDbForm.port" placeholder="54321" />
+                </el-form-item>
+                <el-form-item label="数据库名 (Database)">
+                  <el-input v-model="targetDbForm.database" placeholder="email_system_kb" />
+                </el-form-item>
+                <el-form-item label="用户名 (User)">
+                  <el-input v-model="targetDbForm.username" placeholder="SYSTEM" />
+                </el-form-item>
+                <el-form-item label="连接密码 (Password)">
+                  <el-input v-model="targetDbForm.password" type="password" show-password />
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="success" @click="testTargetDb" :loading="testingDb">测试目标库连通性</el-button>
+                </el-form-item>
+              </el-form>
+            </el-tab-pane>
+
+            <el-tab-pane label="Schema 结构转换预览" name="schema">
+              <div style="margin-bottom: 12px; display: flex; justify-content: flex-end;">
+                <el-button @click="loadSchemaPreview">刷新结构映射</el-button>
+              </div>
+              <el-collapse v-model="activeCollapse">
+                <el-collapse-item v-for="t in schemaPreview" :key="t.table" :title="'表名: ' + t.table + ' (' + t.columns.length + ' 列)'" :name="t.table">
+                  <pre style="background: #1e293b; color: #f8fafc; padding: 12px; border-radius: 6px; font-size: 13px; overflow-x: auto;">{{ t.ddl }}</pre>
+                </el-collapse-item>
+              </el-collapse>
+            </el-tab-pane>
+
+            <el-tab-pane label="历史迁移任务" name="tasks">
+              <el-table :data="migrationTasks" border style="width: 100%; margin-top: 12px;">
+                <el-table-column prop="task_uuid" label="任务标识 UUID" width="260" />
+                <el-table-column prop="source_db" label="源库" width="160" />
+                <el-table-column prop="target_db" label="目标库" width="200" />
+                <el-table-column prop="status" label="状态" width="160">
+                  <template #default="{ row }">
+                    <el-tag :type="row.status === 'completed' || row.status === 'waiting_cutover' ? 'success' : 'warning'">{{ row.status }}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="total_rows" label="总记录数" width="100" />
+                <el-table-column prop="migrated_rows" label="已迁移记录" width="100" />
+                <el-table-column prop="created_at" label="创建时间" />
+              </el-table>
+            </el-tab-pane>
+          </el-tabs>
+        </div>
+      </main>
+    </div>
+  </template>
+
+  <!-- 写邮件 / 草稿编辑模态框 (富文本编辑器 Quill + 美化附件上传) -->
+  <el-dialog v-model="composeVisible" :title="composeForm.draft_id ? '编辑草稿邮件' : '写内部邮件'" width="880px" @opened="initQuillEditor" destroy-on-close>
+    <el-form label-width="90px">
+      <el-form-item label="收件人(TO)" required>
+        <el-select v-model="composeForm.to" multiple filterable placeholder="选择收件人" style="width: 100%;">
+          <el-option v-for="u in contactList" :key="u.id" :label="u.nickname + ' <' + u.email + '> - ' + u.department_name" :value="u.id" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="抄送(CC)">
+        <el-select v-model="composeForm.cc" multiple filterable placeholder="选择抄送人" style="width: 100%;">
+          <el-option v-for="u in contactList" :key="u.id" :label="u.nickname + ' <' + u.email + '>'" :value="u.id" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="密送(BCC)">
+        <el-select v-model="composeForm.bcc" multiple filterable placeholder="选择密送人(接收方不可见)" style="width: 100%;">
+          <el-option v-for="u in contactList" :key="u.id" :label="u.nickname + ' <' + u.email + '>'" :value="u.id" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="邮件主题" required>
+        <el-input v-model="composeForm.subject" placeholder="请输入邮件主题" />
+      </el-form-item>
+      
+      <!-- 富文本编辑器 -->
+      <el-form-item label="邮件正文">
+        <div style="width: 100%;">
+          <div id="quill-editor" class="quill-editor-box"></div>
+        </div>
+      </el-form-item>
+
+      <!-- 优化后的高级附件上传区 -->
+      <el-form-item label="邮件附件">
+        <div class="attachment-zone">
+          <input type="file" ref="fileInputRef" style="display: none;" multiple @change="handleFileUpload" />
+          
+          <div class="upload-drop-zone" @click="triggerFileInput">
+            <el-icon size="28" color="#3b82f6"><i-ep-upload-filled /></el-icon>
+            <div style="font-size: 14px; font-weight: 600; color: #1e293b; margin-top: 6px;">点击上传附件或将文件拖至此处</div>
+            <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">支持文档、图片、压缩包等常见格式（单文件最大 50MB）</div>
+          </div>
+
+          <!-- 已上传附件精美卡片列表 -->
+          <div v-if="composeForm.attachments.length > 0" class="attachment-card-list">
+            <div v-for="att in composeForm.attachments" :key="att.id" class="attachment-item-card">
+              <div class="att-icon">
+                <el-icon><i-ep-document /></el-icon>
+              </div>
+              <div class="att-info">
+                <div class="att-name" :title="att.original_name">{{ att.original_name }}</div>
+                <div class="att-size">{{ (att.file_size / 1024).toFixed(1) }} KB</div>
+              </div>
+              <el-button type="danger" link circle @click="removeAttachment(att.id)">
+                <el-icon><i-ep-close /></el-icon>
+              </el-button>
+            </div>
+          </div>
+        </div>
+      </el-form-item>
+    </el-form>
+    
+    <template #footer>
+      <el-button @click="composeVisible = false">取消</el-button>
+      <el-button type="info" @click="submitMail('draft')">保存草稿</el-button>
+      <el-button type="primary" :loading="sendingMail" @click="submitMail('sent')">立即发送 (提交外发)</el-button>
+    </template>
+  </el-dialog>
+
+  <!-- 邮件详情模态框 -->
+  <el-dialog v-model="detailVisible" title="邮件详情" width="880px">
+    <div v-if="currentMailDetail" class="mail-detail-container">
+      <div class="mail-view-header">
+        <div class="mail-view-title">{{ currentMailDetail.mail.subject }}</div>
+        <div class="mail-meta">
+          <div><strong>发件人：</strong>{{ currentMailDetail.mail.sender_nickname }} &lt;{{ currentMailDetail.mail.sender_email }}&gt;</div>
+          <div>
+            <strong>发送时间：</strong>{{ currentMailDetail.mail.sent_at || '未发送 (草稿或等待审批)' }}
+            <span v-if="currentMailDetail.mail.audit_status === 'pending'" style="color: #f59e0b; margin-left: 12px; font-weight: 600;">[等待管理员审批中]</span>
+            <span v-else-if="currentMailDetail.mail.audit_status === 'rejected'" style="color: #ef4444; margin-left: 12px; font-weight: 600;">[审批驳回: {{ currentMailDetail.mail.audit_remark }}]</span>
+          </div>
+          <div>
+            <strong>收件人：</strong>
+            <span v-for="r in currentMailDetail.recipients" :key="r.id" class="recip-tag">
+              <el-tag size="small" :type="r.type === 'TO' ? 'primary' : (r.type === 'CC' ? 'warning' : 'danger')">
+                {{ r.type }}: {{ r.nickname }}
+                <span v-if="currentMailDetail.is_sender && r.is_read" style="color: #10b981; font-weight: 600;"> (已读)</span>
+                <span v-else-if="currentMailDetail.is_sender" style="color: #94a3b8;"> (未读)</span>
+              </el-tag>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 富文本邮件正文 -->
+      <div class="mail-html-content" v-html="currentMailDetail.mail.content"></div>
+
+      <!-- 附件展示 -->
+      <div v-if="currentMailDetail.attachments && currentMailDetail.attachments.length > 0" class="attachment-zone" style="margin-top: 24px; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+        <div style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 12px;">附件列表 ({{ currentMailDetail.attachments.length }})</div>
+        <div class="attachment-card-list">
+          <div v-for="att in currentMailDetail.attachments" :key="att.id" class="attachment-item-card">
+            <div class="att-icon">
+              <el-icon><i-ep-paperclip /></el-icon>
+            </div>
+            <div class="att-info">
+              <div class="att-name" :title="att.original_name">{{ att.original_name }}</div>
+              <div class="att-size">{{ (att.file_size / 1024).toFixed(1) }} KB</div>
+            </div>
+            <a :href="'/api/attachments/' + att.id + '/download?token=' + token" target="_blank" style="text-decoration: none;">
+              <el-button type="primary" link size="small">下载</el-button>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </el-dialog>
+</div>
+
+<script>
+const { createApp, ref, reactive, onMounted, nextTick } = Vue;
+
+const app = createApp({
+  setup() {
+    const token = ref(localStorage.getItem('mail_token') || '');
+    const currentUser = ref(JSON.parse(localStorage.getItem('mail_user') || '{}'));
+    const currentTab = ref('inbox');
+    const dbSubTab = ref('conn');
+    const activeCollapse = ref(['sys_users', 'mail_message']);
+
+    const loginLoading = ref(false);
+    const loginForm = reactive({ username: 'admin', password: 'password' });
+
+    const mailList = ref([]);
+    const totalMails = ref(0);
+    const currentPage = ref(1);
+    const pageSize = ref(15);
+    const searchKeyword = ref('');
+    const unreadCount = ref(0);
+    const tableLoading = ref(false);
+
+    const pendingAuditList = ref([]);
+    const pendingAuditCount = ref(0);
+    const auditLoading = ref(false);
+
+    const contactList = ref([]);
+    const departmentList = ref([]);
+    const selectedDeptId = ref(0);
+    const contactSearchKey = ref('');
+    const contactLoading = ref(false);
+
+    const schemaPreview = ref([]);
+    const migrationTasks = ref([]);
+
+    const fileInputRef = ref(null);
+    const composeVisible = ref(false);
+    const sendingMail = ref(false);
+    const composeForm = reactive({
+      draft_id: null,
+      to: [], cc: [], bcc: [], subject: '', content: '', attachments: []
+    });
+
+    let quillInstance = null;
+
+    const detailVisible = ref(false);
+    const currentMailDetail = ref(null);
+
+    const testingDb = ref(false);
+    const targetDbForm = reactive({
+      host: '127.0.0.1', port: 54321, database: 'email_system_kb', username: 'SYSTEM', password: ''
+    });
+
+    axios.interceptors.request.use(config => {
+      if (token.value) {
+        config.headers.Authorization = 'Bearer ' + token.value;
+      }
+      return config;
+    });
+
+    const handleLogin = async () => {
+      loginLoading.value = true;
+      try {
+        const res = await axios.post('/api/auth/login', {
+          username: loginForm.username,
+          password: loginForm.password || '123456'
+        });
+        if (res.data.code === 200) {
+          token.value = res.data.data.token;
+          currentUser.value = res.data.data.user;
+          localStorage.setItem('mail_token', token.value);
+          localStorage.setItem('mail_user', JSON.stringify(currentUser.value));
+          ElementPlus.ElMessage.success('登录成功');
+          initSystem();
+        } else {
+          ElementPlus.ElMessage.error(res.data.msg);
+        }
+      } catch (e) {
+        ElementPlus.ElMessage.error('登录请求异常');
+      } finally {
+        loginLoading.value = false;
+      }
+    };
+
+    const handleLogout = () => {
+      token.value = '';
+      currentUser.value = {};
+      localStorage.removeItem('mail_token');
+      localStorage.removeItem('mail_user');
+    };
+
+    const switchTab = (tab) => {
+      currentTab.value = tab;
+      if (['inbox', 'sent', 'drafts'].includes(tab)) {
+        currentPage.value = 1;
+        loadMailList();
+      } else if (tab === 'audits') {
+        loadPendingAudits();
+      } else if (tab === 'contacts') {
+        loadDepartments();
+        loadContacts();
+      } else if (tab === 'database') {
+        loadSchemaPreview();
+        loadMigrationTasks();
+      }
+    };
+
+    const loadMailList = async () => {
+      tableLoading.value = true;
+      try {
+        const url = `/api/mail/${currentTab.value}`;
+        const res = await axios.get(url, {
+          params: { page: currentPage.value, pageSize: pageSize.value, keyword: searchKeyword.value }
+        });
+        if (res.data.code === 200) {
+          mailList.value = res.data.data.list;
+          totalMails.value = res.data.data.total;
+        }
+      } finally {
+        tableLoading.value = false;
+      }
+    };
+
+    const loadPendingAudits = async () => {
+      if (!currentUser.value.is_manager) return;
+      auditLoading.value = true;
+      try {
+        const res = await axios.get('/api/mail/audits/pending');
+        if (res.data.code === 200) {
+          pendingAuditList.value = res.data.data.list;
+          pendingAuditCount.value = res.data.data.total;
+        }
+      } finally {
+        auditLoading.value = false;
+      }
+    };
+
+    const viewAuditDetail = async (row) => {
+      try {
+        const res = await axios.get(`/api/mail/${row.mail_id}`);
+        if (res.data.code === 200) {
+          currentMailDetail.value = res.data.data;
+          detailVisible.value = true;
+        }
+      } catch (e) {
+        ElementPlus.ElMessage.error('获取详情失败');
+      }
+    };
+
+    const handleApprove = async (row) => {
+      try {
+        await ElementPlus.ElMessageBox.confirm(`确认批准并外发该邮件《${row.subject}》吗？`, '审批通过确认', {
+          confirmButtonText: '批准发送',
+          cancelButtonText: '取消',
+          type: 'success'
+        });
+        const res = await axios.post(`/api/mail/${row.mail_id}/approve`);
+        if (res.data.code === 200) {
+          ElementPlus.ElMessage.success(res.data.msg);
+          loadPendingAudits();
+        } else {
+          ElementPlus.ElMessage.error(res.data.msg);
+        }
+      } catch (e) {}
+    };
+
+    const handleReject = async (row) => {
+      try {
+        const { value } = await ElementPlus.ElMessageBox.prompt('请输入驳回原因：', '驳回确认', {
+          confirmButtonText: '确认驳回',
+          cancelButtonText: '取消',
+          inputPattern: /\S+/,
+          inputErrorMessage: '驳回原因不能为空'
+        });
+        const res = await axios.post(`/api/mail/${row.mail_id}/reject`, { remark: value });
+        if (res.data.code === 200) {
+          ElementPlus.ElMessage.warning('邮件已驳回');
+          loadPendingAudits();
+        } else {
+          ElementPlus.ElMessage.error(res.data.msg);
+        }
+      } catch (e) {}
+    };
+
+    const handleRowClick = async (row) => {
+      if (currentTab.value === 'drafts') {
+        openEditDraft(row);
+        return;
+      }
+      try {
+        const res = await axios.get(`/api/mail/${row.mail_id}`);
+        if (res.data.code === 200) {
+          currentMailDetail.value = res.data.data;
+          detailVisible.value = true;
+          if (currentTab.value === 'inbox' && row.is_read === 0) {
+            row.is_read = 1;
+          }
+        } else {
+          ElementPlus.ElMessage.error(res.data.msg);
+        }
+      } catch (e) {
+        ElementPlus.ElMessage.error('获取详情失败');
+      }
+    };
+
+    const openEditDraft = async (row) => {
+      try {
+        const res = await axios.get(`/api/mail/${row.mail_id}`);
+        if (res.data.code === 200) {
+          const detail = res.data.data;
+          composeForm.draft_id = row.mail_id;
+          composeForm.subject = detail.mail.subject;
+          composeForm.content = detail.mail.content;
+          composeForm.to = detail.recipients.filter(r => r.type === 'TO').map(r => r.recipient_id);
+          composeForm.cc = detail.recipients.filter(r => r.type === 'CC').map(r => r.recipient_id);
+          composeForm.bcc = detail.recipients.filter(r => r.type === 'BCC').map(r => r.recipient_id);
+          composeForm.attachments = detail.attachments || [];
+          composeVisible.value = true;
+          loadContacts();
+        }
+      } catch (e) {
+        ElementPlus.ElMessage.error('读取草稿失败');
+      }
+    };
+
+    const deleteMail = async (mailId) => {
+      try {
+        await ElementPlus.ElMessageBox.confirm('确定要删除这封邮件吗？', '确认');
+        const res = await axios.post(`/api/mail/${mailId}/delete`);
+        if (res.data.code === 200) {
+          ElementPlus.ElMessage.success('删除成功');
+          loadMailList();
+        }
+      } catch (e) {}
+    };
+
+    const loadDepartments = async () => {
+      try {
+        const res = await axios.get('/api/departments');
+        if (res.data.code === 200) {
+          departmentList.value = res.data.data;
+        }
+      } catch (e) {}
+    };
+
+    const loadContacts = async () => {
+      contactLoading.value = true;
+      try {
+        const res = await axios.get('/api/contacts', {
+          params: {
+            keyword: contactSearchKey.value,
+            department_id: selectedDeptId.value
+          }
+        });
+        if (res.data.code === 200) {
+          contactList.value = res.data.data;
+        }
+      } finally {
+        contactLoading.value = false;
+      }
+    };
+
+    const handleDeptSelect = (deptId) => {
+      selectedDeptId.value = Number(deptId);
+      loadContacts();
+    };
+
+    const initQuillEditor = () => {
+      nextTick(() => {
+        const editorEl = document.getElementById('quill-editor');
+        if (!editorEl) return;
+        
+        if (!quillInstance) {
+          quillInstance = new Quill('#quill-editor', {
+            theme: 'snow',
+            placeholder: '请在此输入邮件正文，支持加粗、列表、表格、颜色与排版...',
+            modules: {
+              toolbar: [
+                ['bold', 'italic', 'underline', 'strike'],
+                [{ 'header': 1 }, { 'header': 2 }],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                [{ 'color': [] }, { 'background': [] }],
+                [{ 'align': [] }],
+                ['link', 'clean']
+              ]
+            }
+          });
+        }
+        quillInstance.root.innerHTML = composeForm.content || '';
+      });
+    };
+
+    const openCompose = () => {
+      composeForm.draft_id = null;
+      composeForm.to = [];
+      composeForm.cc = [];
+      composeForm.bcc = [];
+      composeForm.subject = '';
+      composeForm.content = '';
+      composeForm.attachments = [];
+      composeVisible.value = true;
+      loadContacts();
+    };
+
+    const composeToUser = (user) => {
+      openCompose();
+      composeForm.to = [user.id];
+    };
+
+    const triggerFileInput = () => {
+      if (fileInputRef.value) {
+        fileInputRef.value.click();
+      }
+    };
+
+    const handleFileUpload = async (event) => {
+      const files = event.target.files;
+      if (!files || files.length === 0) return;
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+          const res = await axios.post('/api/attachments/upload', formData);
+          if (res.data.code === 200) {
+            composeForm.attachments.push(res.data.data);
+            ElementPlus.ElMessage.success(`${file.name} 上传成功`);
+          } else {
+            ElementPlus.ElMessage.error(res.data.msg);
+          }
+        } catch (e) {
+          ElementPlus.ElMessage.error(`${file.name} 上传失败`);
+        }
+      }
+      event.target.value = '';
+    };
+
+    const removeAttachment = (id) => {
+      composeForm.attachments = composeForm.attachments.filter(a => a.id !== id);
+    };
+
+    const submitMail = async (status) => {
+      if (quillInstance) {
+        composeForm.content = quillInstance.root.innerHTML;
+      }
+
+      if (!composeForm.subject) {
+        ElementPlus.ElMessage.warning('请输入邮件主题');
+        return;
+      }
+      if (status === 'sent' && composeForm.to.length === 0) {
+        ElementPlus.ElMessage.warning('请选择至少一位主收件人');
+        return;
+      }
+
+      sendingMail.value = true;
+      try {
+        const res = await axios.post('/api/mail', {
+          draft_id: composeForm.draft_id,
+          to: composeForm.to,
+          cc: composeForm.cc,
+          bcc: composeForm.bcc,
+          subject: composeForm.subject,
+          content: composeForm.content,
+          content_type: 'html',
+          status: status,
+          attachment_ids: composeForm.attachments.map(a => a.id)
+        });
+        if (res.data.code === 200) {
+          ElementPlus.ElMessage.success(res.data.msg || (status === 'sent' ? '邮件已成功发送' : '草稿保存成功'));
+          composeVisible.value = false;
+          loadMailList();
+          loadPendingAudits();
+        } else {
+          ElementPlus.ElMessage.error(res.data.msg);
+        }
+      } catch (e) {
+        ElementPlus.ElMessage.error('操作失败');
+      } finally {
+        sendingMail.value = false;
+      }
+    };
+
+    const testTargetDb = async () => {
+      testingDb.value = true;
+      try {
+        const res = await axios.post('/api/admin/database/test', targetDbForm);
+        if (res.data.data && res.data.data.success) {
+          ElementPlus.ElMessage.success('人大金仓目标库连接测试成功！版本: ' + res.data.data.version);
+        } else {
+          ElementPlus.ElMessage.warning('连接测试结果: ' + (res.data.data ? res.data.data.error : res.data.msg));
+        }
+      } catch (e) {
+        ElementPlus.ElMessage.error('连通性测试异常');
+      } finally {
+        testingDb.value = false;
+      }
+    };
+
+    const loadSchemaPreview = async () => {
+      const res = await axios.get('/api/admin/database/schema-preview');
+      if (res.data.code === 200) {
+        schemaPreview.value = res.data.data;
+      }
+    };
+
+    const loadMigrationTasks = async () => {
+      const res = await axios.get('/api/admin/database/migration/tasks');
+      if (res.data.code === 200) {
+        migrationTasks.value = res.data.data;
+      }
+    };
+
+    const initSystem = () => {
+      loadMailList();
+      loadDepartments();
+      loadContacts();
+      loadPendingAudits();
+    };
+
+    onMounted(() => {
+      if (token.value) {
+        initSystem();
+      }
+    });
+
+    return {
+      token, currentUser, currentTab, dbSubTab, activeCollapse,
+      loginLoading, loginForm, handleLogin, handleLogout,
+      mailList, totalMails, currentPage, pageSize, searchKeyword, unreadCount, tableLoading,
+      pendingAuditList, pendingAuditCount, auditLoading, loadPendingAudits, viewAuditDetail, handleApprove, handleReject,
+      switchTab, loadMailList, handleRowClick, deleteMail,
+      contactList, departmentList, selectedDeptId, contactSearchKey, contactLoading,
+      loadDepartments, loadContacts, handleDeptSelect, composeToUser,
+      fileInputRef, composeVisible, sendingMail, composeForm, openCompose, openEditDraft, initQuillEditor,
+      triggerFileInput, handleFileUpload, removeAttachment, submitMail,
+      detailVisible, currentMailDetail,
+      testingDb, targetDbForm, testTargetDb, schemaPreview, loadSchemaPreview, migrationTasks, loadMigrationTasks
+    };
+  }
+});
+
+for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
+  app.component('i-ep-' + key.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase(), component);
+}
+
+app.use(ElementPlus);
+app.mount('#app');
+</script>
+</body>
+</html>
